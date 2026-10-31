@@ -64,9 +64,9 @@ async def provider_events(provider_response: httpx.Response):
     async for chunk in provider_response.aiter_bytes():
         pending = (pending + chunk).replace(b"\r\n", b"\n")
         *raw_events, pending = pending.split(b"\n\n")
-        for raw_event in [*raw_events, pending]:
-            if len(raw_event) > MAX_EVENT_BYTES:
-                raise ProviderStreamError("provider event exceeds size limit")
+        incomplete_event = pending.removesuffix(b"\r").removesuffix(b"\n")
+        if any(len(raw_event) > MAX_EVENT_BYTES for raw_event in [*raw_events, incomplete_event]):
+            raise ProviderStreamError("provider event exceeds size limit")
         for raw_event in raw_events:
             data = event_data(raw_event)
             if data:
