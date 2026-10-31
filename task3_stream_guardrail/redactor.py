@@ -22,7 +22,9 @@ PII_RE = re.compile(
 TRUNCATED_PII_RE = re.compile(
     r"(?:[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]*"
     r"|(?<!\d)\d{3}[- ]\d{2}[- ]\d{0,3}"
-    r"|(?<!\d)\d{4}[ -]\d{4}[ -]\d{0,4}(?:[ -]\d{0,3})?)\Z",
+    r"|(?<!\d)\d{12,18}"
+    r"|(?<!\d)\d{4}[ -]\d{4}[ -]\d{0,4}(?:[ -]\d{0,3})?"
+    r"|(?<!\d)\d{4}[ -]\d{6}[ -]\d{0,4})\Z",
     re.ASCII,
 )
 
@@ -54,8 +56,7 @@ class StreamRedactor:
         return self._release_until(self._hold_start())
 
     def flush(self) -> str:
-        self._buffer = TRUNCATED_PII_RE.sub(REDACTED, self._buffer)
-        return self._release_until(len(self._buffer))
+        return TRUNCATED_PII_RE.sub(REDACTED, self._release_until(len(self._buffer)))
 
     def _hold_start(self) -> int:
         length = len(self._buffer)

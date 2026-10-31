@@ -49,7 +49,6 @@ async def completion_events():
         await asyncio.sleep(CHUNK_DELAY_SECONDS)
         yield event[middle:]
     yield sse_event({"choices": [{"text": "", "finish_reason": "stop"}]})
-    yield sse_event({"choices": [], "usage": {"completion_tokens": len(SAMPLE_CHUNKS)}})
     yield sse_event("[DONE]")
 
 

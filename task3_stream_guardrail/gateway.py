@@ -64,12 +64,13 @@ async def provider_events(provider_response: httpx.Response):
     async for chunk in provider_response.aiter_bytes():
         pending = (pending + chunk).replace(b"\r\n", b"\n")
         *raw_events, pending = pending.split(b"\n\n")
+        for raw_event in [*raw_events, pending]:
+            if len(raw_event) > MAX_EVENT_BYTES:
+                raise ProviderStreamError("provider event exceeds size limit")
         for raw_event in raw_events:
             data = event_data(raw_event)
             if data:
                 yield data
-        if len(pending) > MAX_EVENT_BYTES:
-            raise ProviderStreamError("provider event exceeds size limit")
 
 
 async def sanitized_events(provider_response: httpx.Response):
@@ -131,8 +132,8 @@ async def generate(body: GenerateRequest, request: Request) -> Response:
     except httpx.HTTPError:
         return gateway_error(502, "Provider unavailable")
 
-    content_type = provider_response.headers.get("content-type", "")
-    if provider_response.status_code != 200 or not content_type.startswith("text/event-stream"):
+    media_type = provider_response.headers.get("content-type", "").split(";")[0].strip().lower()
+    if provider_response.status_code != 200 or media_type != "text/event-stream":
         await provider_response.aclose()
         return gateway_error(502, "Provider returned an invalid response")
 
