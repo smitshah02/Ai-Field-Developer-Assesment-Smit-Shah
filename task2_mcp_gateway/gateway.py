@@ -34,14 +34,29 @@ def rpc_error(rid, code: int, message: str, status: int = 200) -> JSONResponse:
     )
 
 
+class DuplicateKeyError(Exception):
+    pass
+
+
+def reject_duplicate_keys(pairs: list[tuple]) -> dict:
+    result = dict(pairs)
+    if len(result) != len(pairs):
+        raise DuplicateKeyError
+    return result
+
+
 @app.post("/mcp")
 async def proxy(request: Request) -> Response:
     raw = await request.body()
 
     try:
-        msg = json.loads(raw)
-    except (json.JSONDecodeError, UnicodeDecodeError):
+        msg = json.loads(raw, object_pairs_hook=reject_duplicate_keys)
+    except (json.JSONDecodeError, UnicodeDecodeError, RecursionError):
         return rpc_error(None, PARSE_ERROR, "Parse error: body is not valid JSON", 400)
+    except DuplicateKeyError:
+        # The raw bytes are forwarded, so a downstream parser could pick a different
+        # duplicate than the one authorized here. The id can't be trusted either.
+        return rpc_error(None, INVALID_REQUEST, "Invalid Request: duplicate JSON keys", 400)
     if not isinstance(msg, dict):
         return rpc_error(None, INVALID_REQUEST, "Invalid Request: expected a single JSON-RPC object", 400)
     

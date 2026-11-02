@@ -243,3 +243,21 @@ def test_initialize_handshake_through_gateway(client):
 
     r = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, headers=VIEWER)
     assert len(r.json()["result"]["tools"]) == 3
+
+
+def test_deeply_nested_json_is_parse_error(client):
+    r = client.post("/mcp", content=b"[" * 100000, headers={**ADMIN, "content-type": "application/json"})
+    assert r.status_code == 400
+    assert r.json()["id"] is None and r.json()["error"]["code"] == -32700
+    assert mock_server.RECEIVED == []
+
+
+@pytest.mark.parametrize("body", [
+    b'{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"admin_reset_key","name":"get_customer_record","arguments":{}}}',
+    b'{"jsonrpc":"2.0","id":1,"method":"tools/list","method":"tools/call","params":{"name":"admin_reset_key"}}',
+], ids=["duplicate_name", "duplicate_method"])
+def test_duplicate_json_keys_rejected_and_never_forwarded(client, body):
+    r = client.post("/mcp", content=body, headers={**VIEWER, "content-type": "application/json"})
+    assert r.status_code == 400
+    assert r.json()["id"] is None and r.json()["error"]["code"] == -32600
+    assert mock_server.RECEIVED == []
