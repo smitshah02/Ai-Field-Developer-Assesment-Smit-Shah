@@ -113,6 +113,8 @@ async def attempt_provider(
 
     if response.status_code == 429:
         return Attempt(RATE_LIMITED, maybe_processed=False)
+    if response.status_code in (502, 503, 504):
+        return Attempt(UNAVAILABLE, maybe_processed=False)
     if response.status_code != 200:
         return Attempt(FAILED, maybe_processed=False)
     try:
@@ -120,6 +122,12 @@ async def attempt_provider(
     except ValidationError:
         return Attempt(FAILED, maybe_processed=True)
     return Attempt(SUCCESS, maybe_processed=True, completion=completion)
+
+
+def should_fail_over(attempt: Attempt) -> bool:
+    if attempt.outcome in (RATE_LIMITED, TIMED_OUT):
+        return True
+    return attempt.outcome == UNAVAILABLE and not attempt.maybe_processed
 
 
 def reported_tokens(usage: Any) -> int | None:
@@ -188,7 +196,7 @@ async def completions(request: Request) -> JSONResponse:
     provider_name = "primary"
     attempts = [await attempt_provider(client, PRIMARY_URL, payload, PRIMARY_TIMEOUT_SECONDS)]
     logger.info("primary attempt: %s", attempts[0].outcome)
-    if attempts[0].outcome in (RATE_LIMITED, TIMED_OUT):
+    if should_fail_over(attempts[0]):
         provider_name = "backup"
         attempts.append(await attempt_provider(client, BACKUP_URL, payload, BACKUP_TIMEOUT_SECONDS))
         logger.info("backup attempt: %s", attempts[1].outcome)

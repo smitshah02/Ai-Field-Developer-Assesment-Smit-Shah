@@ -23,6 +23,5 @@ dist/
 
 *.log
 
-*.db
-*.db-wal
-*.db-shm
+rate_limiter.db
+rate_limiter.db-journal

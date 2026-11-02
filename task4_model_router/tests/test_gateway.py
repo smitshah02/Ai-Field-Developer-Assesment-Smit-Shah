@@ -407,7 +407,7 @@ async def test_slow_drip_exceeding_total_timeout_uses_backup(router, monkeypatch
     assert stream.closed
 
 
-@pytest.mark.parametrize("code", [302, 400, 401, 404, 500, 502, 503])
+@pytest.mark.parametrize("code", [302, 400, 401, 404, 500])
 async def test_other_primary_statuses_do_not_use_backup(router, code):
     router.primary.behavior = status(code)
 
@@ -418,13 +418,38 @@ async def test_other_primary_statuses_do_not_use_backup(router, code):
     assert router.rows() == [("tenant-a", 0)]
 
 
-async def test_primary_connection_failure_does_not_use_backup(router):
-    router.primary.behavior = raises(httpx.ConnectError("refused"))
+@pytest.mark.parametrize("code", [502, 503, 504])
+async def test_primary_unavailable_statuses_use_backup(router, code):
+    router.primary.behavior = status(code)
+    router.backup.behavior = ok(total(RESERVED_TOKENS))
 
     response = await router.post()
 
-    assert_error(response, 502, "PROVIDER_UNAVAILABLE")
-    assert router.backup.calls == []
+    assert response.status_code == 200
+    assert response.json()["provider"] == "backup"
+    assert len(router.primary.calls) == 1
+    assert len(router.backup.calls) == 1
+    assert router.rows() == [("tenant-a", RESERVED_TOKENS)]
+
+
+async def test_primary_connection_failure_uses_backup(router):
+    router.primary.behavior = raises(httpx.ConnectError("refused"))
+    router.backup.behavior = ok(total(RESERVED_TOKENS))
+
+    response = await router.post()
+
+    assert response.status_code == 200
+    assert response.json()["provider"] == "backup"
+    assert router.rows() == [("tenant-a", RESERVED_TOKENS)]
+
+
+async def test_both_providers_unreachable_charges_nothing(router):
+    router.primary.behavior = raises(httpx.ConnectError("refused"))
+    router.backup.behavior = raises(httpx.ConnectError("refused"))
+
+    response = await router.post()
+
+    assert_error(response, 502, "ALL_PROVIDERS_FAILED")
     assert router.rows() == [("tenant-a", 0)]
 
 
