@@ -34,6 +34,7 @@ TENANT_API_KEYS = dict(
 MAX_PROMPT_CHARS = 400_000
 MAX_OUTPUT_TOKENS = 4_096
 DEFAULT_OUTPUT_TOKENS = 256
+MAX_REPORTED_TOKENS = 1_000_000
 
 SUCCESS = "success"
 RATE_LIMITED = "rate_limited"
@@ -123,12 +124,12 @@ async def attempt_provider(
 
 def reported_tokens(usage: Any) -> int | None:
     total = usage.get("total_tokens") if isinstance(usage, dict) else None
-    if isinstance(total, int) and not isinstance(total, bool) and total > 0:
+    if isinstance(total, int) and not isinstance(total, bool) and 0 < total <= MAX_REPORTED_TOKENS:
         return total
     return None
 
 
-def tokens_to_charge(reserved_tokens: int, attempts: list[Attempt]) -> int:
+def tokens_to_charge(input_tokens: int, reserved_tokens: int, attempts: list[Attempt]) -> int:
     final_attempt = attempts[-1]
     if final_attempt.completion is None:
         uncertain = any(attempt.maybe_processed for attempt in attempts)
@@ -139,7 +140,7 @@ def tokens_to_charge(reserved_tokens: int, attempts: list[Attempt]) -> int:
         return reserved_tokens
     if any(attempt.maybe_processed for attempt in attempts[:-1]):
         return max(reserved_tokens, reported)
-    return reported
+    return max(input_tokens, reported)
 
 
 def provider_failure_response(attempts: list[Attempt]) -> JSONResponse:
@@ -154,12 +155,14 @@ def provider_failure_response(attempts: list[Attempt]) -> JSONResponse:
 
 
 async def settle_usage(
-    limiter: TokenRateLimiter, reservation_id: int, tokens: int
-) -> None:
+    limiter: TokenRateLimiter, reservation_id: int, tokens: int, reserved_tokens: int
+) -> int:
     try:
         await limiter.settle(reservation_id, tokens)
-    except aiosqlite.Error:
+    except (aiosqlite.Error, ValueError):
         logger.error("token reconciliation failed; keeping full reservation")
+        return reserved_tokens
+    return tokens
 
 
 @app.post("/v1/completions")
@@ -190,8 +193,12 @@ async def completions(request: Request) -> JSONResponse:
         attempts.append(await attempt_provider(client, BACKUP_URL, payload, BACKUP_TIMEOUT_SECONDS))
         logger.info("backup attempt: %s", attempts[1].outcome)
 
-    charged_tokens = tokens_to_charge(reserved_tokens, attempts)
-    await settle_usage(limiter, reservation_id, charged_tokens)
+    charged_tokens = await settle_usage(
+        limiter,
+        reservation_id,
+        tokens_to_charge(input_tokens, reserved_tokens, attempts),
+        reserved_tokens,
+    )
 
     completion = attempts[-1].completion
     if completion is None:

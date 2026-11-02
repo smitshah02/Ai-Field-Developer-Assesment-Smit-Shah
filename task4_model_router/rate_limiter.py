@@ -60,12 +60,12 @@ class TokenRateLimiter:
                     "DELETE FROM token_usage WHERE created_at <= ?",
                     (window_start,),
                 )
-                async with self._db.execute(
+                rows = await self._db.execute_fetchall(
                     "SELECT COALESCE(SUM(tokens), 0) FROM token_usage "
                     "WHERE tenant_id = ? AND created_at > ?",
                     (tenant_id, window_start),
-                ) as cursor:
-                    (used_tokens,) = await cursor.fetchone()
+                )
+                used_tokens = rows[0][0]
 
                 reservation_id = None
                 if used_tokens + tokens <= self._token_limit:

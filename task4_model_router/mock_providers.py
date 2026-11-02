@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from rate_limiter import count_tokens
+
 DEFAULT_DELAY_SECONDS = 5.0
 
 
@@ -15,8 +17,8 @@ class CompletionRequest(BaseModel):
 
 def completion_body(provider_name: str, request: CompletionRequest) -> dict:
     text = f"Mock completion from {provider_name}: {request.prompt[:40]}"
-    prompt_tokens = len(request.prompt.split())
-    completion_tokens = min(len(text.split()), request.max_tokens)
+    prompt_tokens = count_tokens(request.prompt)
+    completion_tokens = min(count_tokens(text), request.max_tokens)
     return {
         "text": text,
         "model": f"mock-{provider_name}-1",
