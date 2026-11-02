@@ -28,6 +28,15 @@ class StrictMCPServer(MCPServer):
     """
 
     async def call_tool(self, name, arguments, context=None):
+        tool = next((t for t in await self.list_tools() if t.name == name), None)
+        if tool is not None:
+            # The SDK's argument model ignores extra keys, so reject them here.
+            unexpected = sorted(set(arguments or {}) - set(tool.input_schema.get("properties", {})))
+            if unexpected:
+                errors = [{"field": key, "message": "Unexpected argument"} for key in unexpected]
+                log.info("Rejected %s unexpected arguments: %s", name, unexpected)
+                detail = "; ".join(f"{e['field']}: {e['message']}" for e in errors)
+                raise MCPError(INVALID_PARAMS, f"Invalid arguments for tool {name}: {detail}", {"errors": errors})
         try:
             return await super().call_tool(name, arguments, context)
         except ToolError as exc:

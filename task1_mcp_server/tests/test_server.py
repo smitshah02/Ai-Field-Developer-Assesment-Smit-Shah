@@ -64,11 +64,21 @@ async def test_trigger_refund_success():
         ("trigger_refund", {**VALID_REFUND, "amount": 0}, "amount"),  # zero
         ("trigger_refund", {**VALID_REFUND, "reason": "too short"}, "reason"),  # 9 chars
         ("trigger_refund", {**VALID_REFUND, "reason": None}, "reason"),  # wrong type
+        ("get_customer_record", {"customer_id": "CUST-12345", "extra": 1}, "extra"),  # unknown key
+        ("trigger_refund", {**VALID_REFUND, "approved_by": "admin"}, "approved_by"),  # unknown key
+        ("trigger_refund", {**VALID_REFUND, "reason": " " * 10}, "reason"),  # whitespace only
     ],
 )
 async def test_invalid_input_rejected_with_invalid_params(name, args, bad_field):
     err = await expect_invalid_params(name, args)
     assert bad_field in {e["field"] for e in err.data["errors"]}
+
+
+@pytest.mark.asyncio
+async def test_reason_of_exactly_ten_non_space_chars_accepted():
+    result = await call("trigger_refund", {**VALID_REFUND, "reason": "Damaged!!!"})
+    assert not result.is_error
+    assert result.structured_content["status"] == "pending"
 
 
 @pytest.mark.asyncio

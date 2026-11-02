@@ -22,3 +22,7 @@ dist/
 *.egg-info/
 
 *.log
+
+*.db
+*.db-wal
+*.db-shm
