@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import sys
+import time
 from pathlib import Path
 
 import httpx
@@ -575,6 +576,20 @@ async def test_first_output_is_produced_from_the_first_content_chunk():
     assert await anext(events) == gateway.text_event("Hi ")
     assert stream.chunks_sent == 2
     await events.aclose()
+
+
+async def test_large_event_delivered_one_byte_per_chunk_is_parsed_quickly():
+    text = "word " * 12800
+    body = delta(text) + DONE
+    steps = [body[index:index + 1] for index in range(len(body))]
+    response = httpx.Response(200, stream=ScriptedStream(steps))
+
+    start = time.perf_counter()
+    events = [event async for event in gateway.sanitized_events(response)]
+    elapsed = time.perf_counter() - start
+
+    assert parse_client_stream("".join(events)) == (text, "done", [])
+    assert elapsed < 1
 
 
 async def test_client_disconnect_while_provider_is_stalled_closes_upstream(provider):

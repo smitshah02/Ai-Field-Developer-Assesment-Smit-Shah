@@ -60,12 +60,25 @@ def delta_text(data: str) -> str:
 
 
 async def provider_events(provider_response: httpx.Response):
-    pending = b""
+    pending = bytearray()
+    carried_cr = b""
     async for chunk in provider_response.aiter_bytes():
-        pending = (pending + chunk).replace(b"\r\n", b"\n")
-        *raw_events, pending = pending.split(b"\n\n")
-        incomplete_event = pending.removesuffix(b"\r").removesuffix(b"\n")
-        if any(len(raw_event) > MAX_EVENT_BYTES for raw_event in [*raw_events, incomplete_event]):
+        new_bytes = carried_cr + chunk
+        # A trailing "\r" may be the first half of a "\r\n" split across chunks.
+        carried_cr = b"\r" if new_bytes.endswith(b"\r") else b""
+        new_bytes = new_bytes.removesuffix(b"\r").replace(b"\r\n", b"\n")
+
+        search_from = max(len(pending) - 1, 0)
+        pending += new_bytes
+        raw_events = []
+        event_start = 0
+        while (event_end := pending.find(b"\n\n", search_from)) != -1:
+            raw_events.append(bytes(pending[event_start:event_end]))
+            event_start = search_from = event_end + 2
+        del pending[:event_start]
+
+        incomplete_size = len(pending) - pending.endswith(b"\n")
+        if incomplete_size > MAX_EVENT_BYTES or any(len(raw_event) > MAX_EVENT_BYTES for raw_event in raw_events):
             raise ProviderStreamError("provider event exceeds size limit")
         for raw_event in raw_events:
             data = event_data(raw_event)
