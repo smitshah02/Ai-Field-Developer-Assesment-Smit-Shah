@@ -9,14 +9,7 @@ A FastAPI LLM gateway with a per-tenant, token-aware sliding-window rate limiter
 
 ## Setup
 
-From the repository root:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cd task4_model_router
-```
+Follow [Setup](../README.md#setup) in the root README, then `cd task4_model_router`.
 
 ## Project layout
 
@@ -26,7 +19,6 @@ cd task4_model_router
 ├── rate_limiter.py     # Token counting and SQLite sliding-window limiter
 ├── mock_providers.py   # Mock primary and backup providers
 ├── README.md
-├── .gitignore
 └── tests/
 ```
 

@@ -4,18 +4,11 @@ A FastAPI gateway that forwards a text-generation request to an LLM provider, st
 
 ## Requirements
 
-Python >= 3.10
+Python >= 3.10 (the shared repo venv needs 3.11 because of Task 4)
 
 ## Setup
 
-From the repository root:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cd task3_stream_guardrail
-```
+Follow [Setup](../README.md#setup) in the root README, then `cd task3_stream_guardrail`.
 
 ## Project layout
 
@@ -86,6 +79,8 @@ data: [DONE]
 - Card separators other than space or hyphen (for example dots or non-breaking spaces) and non-ASCII digits are not detected.
 - Only the completions format (`choices[0].text`) is parsed, not chat format (`delta.content`).
 - No provider API key is forwarded, since the provider is a mock.
+- Card numbers must pass the Luhn check, so common placeholder numbers such as `1234 5678 9012 3456` are intentionally not redacted, while real-format test cards such as `4111 1111 1111 1111` are.
+- Emails with non-ASCII characters (for example `jöhn@exämple.com`) are not detected.
 
 ## Tests
 

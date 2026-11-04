@@ -1,6 +1,6 @@
 # Customer MCP Server
 
-An MCP server, built on `mcp==2.3.0` and communicating over stdio, that lets an AI client look up customers and issue refunds. Every argument is strictly validated before a tool runs. Customer data is an in-memory sample and refunds are simulated.
+An MCP server, built on the official `mcp` Python SDK (2.x, tested on 2.3.0) and communicating over stdio, that lets an AI client look up customers and issue refunds. Every argument is strictly validated before a tool runs. Customer data is an in-memory sample and refunds are simulated.
 
 ## Tools
 
@@ -17,7 +17,7 @@ Sample data: `CUST-10001`, `CUST-10002`, `CUST-12345`. Any other valid-format ID
 
 ## Requirements
 
-Python >= 3.10
+Python >= 3.10 (the shared repo venv needs 3.11 because of Task 4)
 
 ## Project layout
 
@@ -25,23 +25,14 @@ Python >= 3.10
 .
 ├── server.py          # MCP server, tools and error mapping
 ├── schemas.py         # Pydantic argument and result types
-├── requirements.txt
 ├── README.md
 └── tests/
     └── test_server.py
 ```
 
-cd task1_mcp_server
 ## Setup
 
-From the repository root:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cd task1_mcp_server 
-```
+Follow [Setup](../README.md#setup) in the root README, then `cd task1_mcp_server`.
 
 ## Run
 
@@ -87,7 +78,11 @@ pytest -v tests/
 
 **Note:** the brief explicitly asks for JSON-RPC error codes. The SDK default, and the current MCP spec guidance, is to return validation failures as `isError` results so the model can self-correct. This server follows the brief.
 
+Example: an unknown argument key.
+
+```json
 {"jsonrpc":"2.0","id":2,"error":{"code":-32602,"message":"Invalid arguments for tool trigger_refund: approved_by: Unexpected argument","data":{"errors":[{"field":"approved_by","message":"Unexpected argument"}]}}}
+```
 
 ## STDIO
 

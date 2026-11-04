@@ -4,7 +4,7 @@ A FastAPI reverse proxy that sits between an AI client and a downstream MCP serv
 
 ## Requirements
 
-Python >= 3.10
+Python >= 3.10 (the shared repo venv needs 3.11 because of Task 4)
 
 ## Project layout
 
@@ -13,7 +13,6 @@ Python >= 3.10
 ├── gateway.py          # JSON-RPC parsing, auth checks, forwarding
 ├── auth.py             # Token-to-role mapping and the admin_* rule
 ├── mock_server.py      # Mock downstream MCP server
-├── requirements.txt
 ├── README.md
 └── tests/
     └── test_gateway.py
@@ -21,14 +20,7 @@ Python >= 3.10
 
 ## Setup
 
-From the repository root:
-
- ```bash
- python3 -m venv .venv
- source .venv/bin/activate
- pip install -r requirements.txt
- cd task2_mcp_gateway 
- ```
+Follow [Setup](../README.md#setup) in the root README, then `cd task2_mcp_gateway`.
 
 ## Run
 

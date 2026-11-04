@@ -21,6 +21,11 @@ CUSTOMERS = {
 }
 
 
+def invalid_params(name: str, errors: list[dict]) -> MCPError:
+    detail = "; ".join(f"{e['field']}: {e['message']}" for e in errors)
+    return MCPError(INVALID_PARAMS, f"Invalid arguments for tool {name}: {detail}", {"errors": errors})
+
+
 class StrictMCPServer(MCPServer):
     """Malformed requests (bad arguments, unknown tool) become JSON-RPC -32602.
 
@@ -35,8 +40,7 @@ class StrictMCPServer(MCPServer):
             if unexpected:
                 errors = [{"field": key, "message": "Unexpected argument"} for key in unexpected]
                 log.info("Rejected %s unexpected arguments: %s", name, unexpected)
-                detail = "; ".join(f"{e['field']}: {e['message']}" for e in errors)
-                raise MCPError(INVALID_PARAMS, f"Invalid arguments for tool {name}: {detail}", {"errors": errors})
+                raise invalid_params(name, errors)
         try:
             return await super().call_tool(name, arguments, context)
         except ToolError as exc:
@@ -48,8 +52,7 @@ class StrictMCPServer(MCPServer):
                     for e in exc.__cause__.errors(include_url=False)
                 ]
                 log.info("Rejected %s arguments: %s", name, errors)
-                detail = "; ".join(f"{e['field']}: {e['message']}" for e in errors)
-                raise MCPError(INVALID_PARAMS, f"Invalid arguments for tool {name}: {detail}", {"errors": errors}) from exc
+                raise invalid_params(name, errors) from exc
             if name not in {t.name for t in await self.list_tools()}:
                 raise MCPError(INVALID_PARAMS, f"Unknown tool: {name}") from exc
             raise

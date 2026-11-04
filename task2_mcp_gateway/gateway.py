@@ -13,7 +13,7 @@ PARSE_ERROR = -32700
 INVALID_REQUEST = -32600
 INVALID_PARAMS = -32602
 # Implementation-defined codes for this gateway.
-UNAUTHORIZED_TOOL_CALL = -32001  
+UNAUTHORIZED_TOOL_CALL = -32001
 UNAUTHENTICATED = -32002
 DOWNSTREAM_UNAVAILABLE = -32003
 
@@ -59,7 +59,7 @@ async def proxy(request: Request) -> Response:
         return rpc_error(None, INVALID_REQUEST, "Invalid Request: duplicate JSON keys", 400)
     if not isinstance(msg, dict):
         return rpc_error(None, INVALID_REQUEST, "Invalid Request: expected a single JSON-RPC object", 400)
-    
+
     is_notification = "id" not in msg
     rid = msg.get("id")
     if not is_notification and (isinstance(rid, bool) or not isinstance(rid, (str, int))):
@@ -67,16 +67,16 @@ async def proxy(request: Request) -> Response:
     method = msg.get("method")
     if msg.get("jsonrpc") != "2.0" or not isinstance(method, str):
         return rpc_error(rid, INVALID_REQUEST, "Invalid Request: need jsonrpc '2.0' and a string method", 400)
-    
+
     if is_notification and not method.startswith("notifications/"):
         return rpc_error(None, INVALID_REQUEST, f"Invalid Request: '{method}' requires an id", 400)
 
-    
+
     role = role_for(request.headers.get("authorization"))
     if role is None:
         return rpc_error(rid, UNAUTHENTICATED, "Unauthenticated: missing or invalid Bearer token", 401)
 
-    
+
     if method == "tools/call":
         params = msg.get("params")
         name = params.get("name") if isinstance(params, dict) else None
